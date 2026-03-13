@@ -20,8 +20,8 @@ const MOCK_POINTS = Array.from({ length: 24 }).map((_, idx) => {
 
 export default function MetricChart() {
   return (
-    <div className="h-64 w-full rounded-xl border bg-white p-4 shadow-sm">
-      <p className="mb-2 text-sm font-semibold text-gray-700">
+    <div className="h-64 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
+      <p className="mb-2 text-sm font-semibold text-[var(--text)]">
         CPU vs RAM (mock last 24 hours)
       </p>
       <ResponsiveContainer width="100%" height="100%">
