@@ -9,9 +9,11 @@ function getMockIntensity(hour: number) {
 
 export default function LearningHeatmap() {
   return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold">🧠 Usage Pattern (mock)</p>
-      <p className="mt-1 text-xs text-gray-500">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
+      <p className="text-sm font-semibold text-[var(--text)]">
+        🧠 Usage Pattern (mock)
+      </p>
+      <p className="mt-1 text-xs text-[var(--muted)]">
         This mock heatmap will later come from the personalized learning API.
       </p>
       <div className="mt-4 grid grid-cols-12 gap-1">
@@ -28,13 +30,13 @@ export default function LearningHeatmap() {
           return (
             <div
               key={h}
-              className={`h-7 rounded ${bg}`}
+              className={`h-7 rounded ${bg} transition-transform duration-150 hover:scale-[1.06]`}
               title={`${h}:00 activity (${intensity})`}
             />
           );
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-gray-400">
+      <div className="mt-2 flex justify-between text-[10px] text-[var(--muted)]">
         <span>0:00</span>
         <span>6:00</span>
         <span>12:00</span>
