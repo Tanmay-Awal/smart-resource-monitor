@@ -1,90 +1,157 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import api from "@/lib/api";
+import { Send, Bot, User, Loader2, Command } from "lucide-react";
 
 type Message = {
-  id: number;
-  role: "user" | "ai";
-  text: string;
+  role: "user" | "assistant";
+  content: string;
 };
 
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: 1,
-    role: "ai",
-    text: "Hi! I'm your system assistant (mock). Ask things like “Why is my CPU high?” or “Is my disk healthy?”",
-  },
-];
-
 export default function Chatbot() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  const handleSend = () => {
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    const nextId = messages.length ? messages[messages.length - 1].id + 1 : 1;
-    const userMsg: Message = { id: nextId, role: "user", text: trimmed };
-    const aiMsg: Message = {
-      id: nextId + 1,
-      role: "ai",
-      text: "This is a mock reply. Later this will come from the real AI backend with live system context.",
+    const fetchHistory = async () => {
+      try {
+        const res = await api.get("/chat/history");
+        if (res.data.length > 0) {
+          setMessages(res.data.map((m: any) => ({
+            role: m.sender === "user" ? "user" : "assistant",
+            content: m.message
+          })));
+        } else {
+          setMessages([
+            { role: "assistant", content: "AI synchronized. Analyzing system logs for insights..." },
+          ]);
+        }
+      } catch (err) {
+        setMessages([
+          { role: "assistant", content: "Connection to core offline. Local diagnostics only." },
+        ]);
+      }
     };
-    setMessages((prev) => [...prev, userMsg, aiMsg]);
+    fetchHistory();
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setIsLoading(true);
+
+    try {
+      const res = await api.post("/chat/ask", { message: input });
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: res.data.response,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error communicating with intelligence core." },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex h-[420px] flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
-      <div className="bg-[linear-gradient(90deg,var(--accent),var(--accent-2))] px-4 py-2 text-sm font-semibold text-white">
-        🤖 AI System Assistant (mock)
+    <div className="flex h-full flex-col bg-white dark:bg-[#0b1222]">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 px-6 py-3 bg-slate-50/50 dark:bg-white/5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+             <Bot className="h-4 w-4" />
+          </div>
+          <div>
+             <h3 className="text-xs font-bold text-slate-900 dark:text-white">SRM Intelligence</h3>
+             <div className="flex items-center gap-1.5">
+                <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Core Stable</span>
+             </div>
+          </div>
+        </div>
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto bg-[var(--surface-2)] p-3 text-sm">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${
-              m.role === "user" ? "justify-end" : "justify-start"
-            }`}
-          >
-            <div
-              className={`max-w-xs rounded-2xl px-3 py-2 transition-all duration-150 ${
-                m.role === "user"
-                  ? "rounded-br-sm bg-[var(--accent)] text-white shadow-sm"
-                  : "rounded-bl-sm bg-[var(--surface)] text-[var(--text)] shadow-sm"
-              }`}
-            >
-              {m.text}
-            </div>
+
+      {/* Messages */}
+      <div 
+        ref={scrollRef} 
+        className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
+      >
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+             <div className={`flex gap-3 max-w-[90%] ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border ${
+                  m.role === "user" ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-blue-600/10 text-blue-600 border-blue-600/20"
+                }`}>
+                   {m.role === "user" ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+                </div>
+                <div className={`rounded-lg px-3.5 py-2 text-xs shadow-sm ${
+                  m.role === "user" 
+                    ? "bg-slate-900 dark:bg-slate-800 text-white font-medium" 
+                    : "bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/5 leading-relaxed"
+                }`}>
+                  {m.content}
+                </div>
+             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="flex gap-3 max-w-[90%]">
+               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 border border-blue-600/20">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+               </div>
+               <div className="rounded-lg bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 px-4 py-2">
+                  <div className="flex gap-1.5">
+                     <span className="h-1 w-1 rounded-full bg-slate-300 animate-bounce" />
+                     <span className="h-1 w-1 rounded-full bg-slate-300 animate-bounce [animation-delay:0.2s]" />
+                     <span className="h-1 w-1 rounded-full bg-slate-300 animate-bounce [animation-delay:0.4s]" />
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-2 border-t border-[var(--border)] bg-[var(--surface)] p-3">
-        <input
-          className="flex-1 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--accent)]"
-          placeholder="Ask: Why is my laptop hot?"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSend();
-          }}
-        />
-        <button
-          className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-white shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:brightness-110 active:translate-y-0"
-          onClick={handleSend}
-        >
-          Send
-        </button>
+
+      {/* Input Area */}
+      <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5">
+        <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0b1222] px-2 py-1.5 focus-within:border-blue-500 transition-all">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            placeholder="Ask AI..."
+            className="flex-1 bg-transparent px-3 text-xs text-slate-900 dark:text-white outline-none"
+          />
+          <button
+            onClick={handleSend}
+            disabled={isLoading}
+            className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white shadow-sm hover:bg-blue-500 active:scale-95 disabled:opacity-50 transition-all"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between px-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+           <span className="flex items-center gap-1"><Command className="h-2.5 w-2.5" /> ENTER</span>
+           <span>v1.0 AI</span>
+        </div>
       </div>
     </div>
   );
 }
-

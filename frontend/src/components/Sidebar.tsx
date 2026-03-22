@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Gauge, HardDrive, Bot, SlidersHorizontal } from "lucide-react";
+import { Bell, Gauge, HardDrive, Bot, SlidersHorizontal, Cpu, ChevronRight } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
@@ -17,22 +17,24 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
 
   return (
     <aside
-      className={`fixed left-0 top-0 z-20 flex h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] p-3 text-[var(--sidebar-fg)] transition-all duration-200 ${
-        collapsed ? "w-16" : "w-56"
+      className={`fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-slate-200 bg-white dark:border-white/5 dark:bg-[#0b1222] transition-all duration-300 ${
+        collapsed ? "w-16" : "w-64"
       }`}
     >
-      <div className="mb-4 flex items-center justify-center">
-        <div
-          className={`rounded-xl bg-white/5 px-2 py-2 text-center text-xs font-semibold tracking-wide text-[var(--sidebar-fg)] ${
-            collapsed ? "w-10" : "w-full"
-          }`}
-          title="Smart Resource Monitor"
-        >
-          {collapsed ? "SRM" : "Smart Resource Monitor"}
+      <div className="flex h-16 items-center px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 min-w-8 items-center justify-center rounded-lg bg-blue-600">
+            <Cpu className="h-5 w-5 text-white" />
+          </div>
+          {!collapsed && (
+            <span className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-white">
+               SRM Core
+            </span>
+          )}
         </div>
       </div>
 
-      <nav className="space-y-1">
+      <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -40,20 +42,39 @@ export function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
             <Link
               key={item.href}
               href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 ${
+              className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 active
-                  ? "bg-white/10 text-[var(--sidebar-fg)] shadow-sm"
-                  : "text-[var(--sidebar-muted)] hover:bg-white/10 hover:text-[var(--sidebar-fg)]"
-              } ${collapsed ? "justify-center" : ""} hover:-translate-y-[1px]`}
+                  ? "bg-blue-50 text-blue-600 dark:bg-blue-600/10 dark:text-blue-400"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+              } ${collapsed ? "justify-center" : ""}`}
             >
-              <Icon className="h-4 w-4" />
-              {!collapsed && <span>{item.label}</span>}
+              <Icon className={`h-4 w-4 transition-colors ${active ? "text-blue-600 dark:text-blue-400" : "text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"}`} />
+              {!collapsed && (
+                <div className="flex flex-1 items-center justify-between">
+                  <span>{item.label}</span>
+                  {active && <ChevronRight className="h-3 w-3 opacity-50" />}
+                </div>
+              )}
             </Link>
           );
         })}
       </nav>
+
+      <div className="p-4 mt-auto border-t border-slate-100 dark:border-white/5">
+        {!collapsed ? (
+           <div className="flex items-center gap-3 rounded-lg bg-slate-50 dark:bg-white/5 p-3">
+              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="flex flex-col">
+                 <span className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-tighter">System Online</span>
+                 <span className="text-[10px] text-slate-500">v1.2.4 stable</span>
+              </div>
+           </div>
+        ) : (
+           <div className="flex justify-center">
+              <div className="h-2 w-2 rounded-full bg-emerald-500" title="System Online" />
+           </div>
+        )}
+      </div>
     </aside>
   );
 }
-

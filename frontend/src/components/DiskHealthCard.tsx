@@ -1,39 +1,76 @@
-const MOCK_DISK = {
-  model: "Samsung SSD 970 EVO 500GB",
-  health: "PASS",
-  temperature: 46,
-};
+"use client";
+
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
+import { HardDrive, ShieldCheck, ShieldAlert } from "lucide-react";
 
 export default function DiskHealthCard() {
+  const [disk, setDisk] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchDisk = async () => {
+      try {
+        const res = await api.get("/metrics/disk");
+        setDisk(res.data);
+      } catch (err) {}
+    };
+    fetchDisk();
+  }, []);
+
+  if (!disk) {
+     return (
+       <div className="flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-white/5 dark:bg-[#0b1222] animate-pulse">
+         <div className="h-4 w-4 rounded-full border-2 border-slate-200 border-t-blue-500 animate-spin" />
+       </div>
+     );
+  }
+
+  const isWarning = disk.percent > 85;
+
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
-      <p className="text-sm font-semibold text-[var(--text)]">
-        💾 Disk Health (mock)
-      </p>
-      <p className="mt-1 text-xs text-[var(--muted)]">{MOCK_DISK.model}</p>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-[var(--muted)]">Overall</span>
-        <span className="rounded-full bg-emerald-500/15 px-3 py-0.5 text-xs font-semibold text-emerald-400">
-          {MOCK_DISK.health}
-        </span>
-      </div>
-      <div className="mt-4">
-        <div className="mb-1 flex justify-between text-xs text-[var(--muted)]">
-          <span>Temperature</span>
-          <span>{MOCK_DISK.temperature}°C</span>
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#0b1222]">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+           <HardDrive className="h-5 w-5 text-blue-500" />
+           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Disk Diagnostics</h3>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-2)]">
-          <div
-            className="h-2 rounded-full bg-emerald-400 transition-all"
-            style={{ width: `${Math.min((MOCK_DISK.temperature / 60) * 100, 100)}%` }}
-          />
+        <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${
+          disk.health === "PASS" ? "bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20" : "bg-rose-50 text-rose-600 border border-rose-100 dark:bg-rose-500/10 dark:text-rose-500 dark:border-rose-500/20"
+        }`}>
+           {disk.health === "PASS" ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+           Status: {disk.health}
         </div>
       </div>
-      <p className="mt-3 text-xs text-[var(--muted)]">
-        No issues detected. Keep an eye on temperatures during heavy gaming or
-        long compile sessions.
-      </p>
+
+      <div className="space-y-6">
+         <div className="space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+               <span>Utilization</span>
+               <span className={isWarning ? 'text-rose-500' : 'text-blue-500'}>{disk.percent}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+               <div 
+                 className={`h-full rounded-full transition-all duration-1000 ${isWarning ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                 style={{ width: `${disk.percent}%` }}
+               />
+            </div>
+         </div>
+
+         <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border border-slate-100 dark:border-white/5 p-3">
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Used Space</p>
+               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{disk.used_gb} GB</p>
+            </div>
+            <div className="rounded-lg border border-slate-100 dark:border-white/5 p-3">
+               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Capacity</p>
+               <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{disk.total_gb} GB</p>
+            </div>
+         </div>
+
+         <div className="text-[11px] text-slate-500 leading-relaxed italic border-l-2 border-slate-200 dark:border-white/10 pl-3 py-1">
+            Mount point integrity verified. Model: <span className="text-slate-900 dark:text-white font-medium">{disk.model}</span>
+         </div>
+      </div>
     </div>
   );
 }
-

@@ -4,10 +4,22 @@ import asyncio
 from routers import auth, metrics, predict, ai
 from database import test_connection
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("🚀 Smart Resource Monitor API Starting...")
+    test_connection()
+    yield
+    # Shutdown
+    print("🛑 Smart Resource Monitor API Shutting Down...")
+
 app = FastAPI(
     title="Smart Resource Monitor API",
     description="AI-powered system monitoring and optimization",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS Middleware
@@ -31,17 +43,6 @@ app.include_router(metrics.router)
 app.include_router(predict.router)
 app.include_router(ai.router)
 
-# Startup Event
-@app.on_event("startup")
-async def startup_event():
-    print("🚀 Smart Resource Monitor API Starting...")
-    test_connection()
-
-# Shutdown Event
-@app.on_event("shutdown")
-async def shutdown_event():
-    print("🛑 Smart Resource Monitor API Shutting Down...")
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

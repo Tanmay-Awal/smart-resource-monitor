@@ -11,8 +11,10 @@ const SIDEBAR_STORAGE_KEY = "srm-sidebar-collapsed";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     try {
       const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       if (stored === "true" || stored === "false") {
@@ -35,24 +37,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   };
 
+  if (!mounted) return null;
+
   return (
     <ThemeProvider>
-      <Sidebar collapsed={sidebarCollapsed} />
-      <div className={sidebarCollapsed ? "pl-16" : "pl-56"}>
-        <TopBar
+      <div className="flex min-h-screen bg-neutral-50 dark:bg-[#020617] transition-colors duration-300">
+        <Sidebar collapsed={sidebarCollapsed} />
+        
+        <div 
+          className={`flex flex-1 flex-col transition-all duration-300 ease-in-out ${
+            sidebarCollapsed ? "pl-16" : "pl-64"
+          }`}
+        >
+          <TopBar
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={toggleSidebar}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+          
+          <main className="flex-1 p-6 md:p-8">
+            <div className="page-transition mx-auto max-w-[1400px]">
+              {children}
+            </div>
+          </main>
+        </div>
+
+        <SettingsPanel
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
           sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={toggleSidebar}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onToggleSidebarDefault={toggleSidebar}
         />
-        <main className="min-h-[calc(100vh-56px)]">{children}</main>
       </div>
-      <SettingsPanel
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        sidebarCollapsed={sidebarCollapsed}
-        onToggleSidebarDefault={toggleSidebar}
-      />
     </ThemeProvider>
   );
 }
-

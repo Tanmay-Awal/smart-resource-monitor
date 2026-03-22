@@ -3,9 +3,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import urllib.parse
+
 # Database
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/resource_monitor")
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "srm_db")
+
+# Safely encode password for URL
+encoded_pass = urllib.parse.quote_plus(DB_PASSWORD)
+DATABASE_URL = f"postgresql://{DB_USER}:{encoded_pass}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+# Redis
+REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 
 # JWT
 JWT_SECRET = os.getenv("JWT_SECRET", "smartresourcemonitor2024")

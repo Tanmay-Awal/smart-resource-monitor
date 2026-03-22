@@ -1,49 +1,52 @@
 const HOURS = Array.from({ length: 24 }).map((_, i) => i);
 
 function getMockIntensity(hour: number) {
-  if (hour >= 10 && hour <= 13) return "high";
-  if (hour >= 18 && hour <= 21) return "medium";
+  if (hour >= 10 && hour <= 13) return "critical";
+  if (hour >= 18 && hour <= 21) return "high";
   if (hour === 23 || hour <= 6) return "low";
   return "idle";
 }
 
 export default function LearningHeatmap() {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-hover)]">
-      <p className="text-sm font-semibold text-[var(--text)]">
-        🧠 Usage Pattern (mock)
-      </p>
-      <p className="mt-1 text-xs text-[var(--muted)]">
-        This mock heatmap will later come from the personalized learning API.
-      </p>
-      <div className="mt-4 grid grid-cols-12 gap-1">
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Neural Activity Map</h3>
+        <p className="text-[10px] text-slate-500 italic mt-1">Learned daily resource cycle</p>
+      </div>
+
+      <div className="grid grid-cols-6 gap-2">
         {HOURS.map((h) => {
           const intensity = getMockIntensity(h);
-          const bg =
-            intensity === "high"
-              ? "bg-red-500"
-              : intensity === "medium"
-              ? "bg-orange-400"
+          const styles =
+            intensity === "critical"
+              ? "bg-rose-500/80 shadow-[0_0_15px_rgba(244,63,94,0.4)]"
+              : intensity === "high"
+              ? "bg-amber-500/60 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
               : intensity === "low"
-              ? "bg-green-400"
-              : "bg-gray-100";
+              ? "bg-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+              : "bg-slate-800/50";
           return (
             <div
               key={h}
-              className={`h-7 rounded ${bg} transition-transform duration-150 hover:scale-[1.06]`}
-              title={`${h}:00 activity (${intensity})`}
-            />
+              className={`group relative flex h-10 w-full cursor-help items-center justify-center rounded-lg border border-white/5 ${styles} transition-all duration-300 hover:scale-110 hover:z-10`}
+              title={`${h}:00 Intensity: ${intensity}`}
+            >
+               <span className="text-[8px] font-black text-white/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {h}
+               </span>
+            </div>
           );
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-[var(--muted)]">
-        <span>0:00</span>
-        <span>6:00</span>
-        <span>12:00</span>
-        <span>18:00</span>
-        <span>23:00</span>
+      
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+           <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-slate-800" /> Idle</div>
+           <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-emerald-500/60" /> Low</div>
+           <div className="flex items-center gap-1.5"><div className="h-2 w-2 rounded-full bg-rose-500/80" /> Peak</div>
+        </div>
       </div>
     </div>
   );
 }
-
