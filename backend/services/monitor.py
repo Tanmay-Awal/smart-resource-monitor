@@ -1,5 +1,9 @@
 import psutil
 import datetime
+import json
+import os
+import platform
+import subprocess
 from typing import Optional, Any
 from collections import deque, defaultdict
 from statistics import mean, stdev
@@ -242,25 +246,145 @@ def get_personalized_recommendation(user_id: int):
         db.close()
 
 def get_disk_info():
-    """Get real disk information and usage"""
+    """Get disk health and usage (SMART where available)."""
+    errors: list[str] = []
+    disks: list[dict[str, Any]] = []
+
+    def map_health(health_status: Optional[str], operational_status: Optional[str]) -> str:
+        health = (health_status or "").lower()
+        operational = (operational_status or "").lower()
+        if "unhealthy" in health or "failed" in operational:
+            return "CRITICAL"
+        if "warning" in health or "degraded" in operational or "predict" in operational:
+            return "WARNING"
+        if health in ("healthy", "ok"):
+            return "PASS"
+        return "UNKNOWN"
+
+    def run_powershell_json(script: str):
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode != 0:
+            return None, (result.stderr.strip() or "PowerShell command failed")
+        output = result.stdout.strip()
+        if not output:
+            return None, "PowerShell returned empty output"
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError as exc:
+            return None, f"Failed to parse PowerShell JSON: {exc}"
+        if isinstance(data, dict):
+            data = [data]
+        return data, None
+
+    if platform.system().lower() == "windows":
+        script = """
+$ErrorActionPreference = 'Stop'
+$disks = Get-PhysicalDisk | Select-Object FriendlyName, SerialNumber, MediaType, Size, HealthStatus, OperationalStatus, DeviceId
+$reliability = @{}
+try {
+    Get-PhysicalDisk | Get-StorageReliabilityCounter | ForEach-Object { $reliability[$_.DeviceId] = $_ }
+} catch {}
+$disks | ForEach-Object {
+    $rel = $reliability[$_.DeviceId]
+    [pscustomobject]@{
+        device_id = $_.DeviceId
+        model = $_.FriendlyName
+        serial = $_.SerialNumber
+        media_type = $_.MediaType
+        size_gb = [math]::Round($_.Size / 1GB, 2)
+        health_status = $_.HealthStatus
+        operational_status = ($_.OperationalStatus -join ", ")
+        temperature_c = if ($rel) { $rel.Temperature } else { $null }
+        wear = if ($rel) { $rel.Wear } else { $null }
+        read_errors = if ($rel) { $rel.ReadErrorsTotal } else { $null }
+        write_errors = if ($rel) { $rel.WriteErrorsTotal } else { $null }
+        power_on_hours = if ($rel) { $rel.PowerOnHours } else { $null }
+    }
+} | ConvertTo-Json -Depth 4
+"""
+        data, error = run_powershell_json(script)
+        if error:
+            errors.append(error)
+        elif data:
+            for entry in data:
+                disks.append({
+                    "device_id": entry.get("device_id"),
+                    "model": entry.get("model"),
+                    "serial": entry.get("serial"),
+                    "media_type": entry.get("media_type"),
+                    "size_gb": entry.get("size_gb"),
+                    "health_status": entry.get("health_status"),
+                    "operational_status": entry.get("operational_status"),
+                    "health": map_health(entry.get("health_status"), entry.get("operational_status")),
+                    "temperature_c": entry.get("temperature_c"),
+                    "wear": entry.get("wear"),
+                    "read_errors": entry.get("read_errors"),
+                    "write_errors": entry.get("write_errors"),
+                    "power_on_hours": entry.get("power_on_hours")
+                })
+    else:
+        errors.append("SMART health is only implemented for Windows in this build.")
+
+    system_usage = None
+    system_drive = os.environ.get("SystemDrive", "C:")
+    system_mount = f"{system_drive}\\"
     try:
-        usage = psutil.disk_usage('/')
-        return {
-            "model": "System Storage Device",
+        usage = psutil.disk_usage(system_mount)
+        system_usage = {
+            "mount": system_mount,
             "total_gb": round(usage.total / (1024**3), 2),
             "used_gb": round(usage.used / (1024**3), 2),
-            "percent": usage.percent,
-            "health": "PASS" if usage.percent < 90 else "WARNING",
-            "temperature": 42
+            "percent": round(usage.percent, 1)
         }
-    except:
-        return {"model": "Unknown Disk", "health": "Unknown", "temperature": None}
+    except (PermissionError, FileNotFoundError) as exc:
+        errors.append(f"Failed to read disk usage for {system_mount}: {exc}")
+
+    volumes: list[dict[str, Any]] = []
+    try:
+        partitions = psutil.disk_partitions(all=False)
+    except (OSError, RuntimeError) as exc:
+        errors.append(f"Failed to read volume usage: {exc}")
+        partitions = []
+
+    for part in partitions:
+        try:
+            usage = psutil.disk_usage(part.mountpoint)
+        except (PermissionError, FileNotFoundError, OSError):
+            continue
+        volumes.append({
+            "mount": part.mountpoint,
+            "fstype": part.fstype,
+            "total_gb": round(usage.total / (1024**3), 2),
+            "used_gb": round(usage.used / (1024**3), 2),
+            "percent": round(usage.percent, 1)
+        })
+
+    health_summary = "UNKNOWN"
+    if disks:
+        if any(d.get("health") == "CRITICAL" for d in disks):
+            health_summary = "CRITICAL"
+        elif any(d.get("health") == "WARNING" for d in disks):
+            health_summary = "WARNING"
+        elif all(d.get("health") == "PASS" for d in disks):
+            health_summary = "PASS"
+
+    return {
+        "health_summary": health_summary,
+        "system_usage": system_usage,
+        "volumes": volumes,
+        "disks": disks,
+        "errors": errors
+    }
 
 def get_scheduled_tasks():
     """Mock scheduled tasks"""
     return [
-        {"id": 1, "name": "System Cleanup", "scheduled_at": "02:00 AM", "status": "pending"},
-        {"id": 2, "name": "Deep Anomaly Scan", "scheduled_at": "01:00 AM", "status": "completed"}
+        {"id": 1, "task_key": "system_cleanup", "name": "System Cleanup", "scheduled_at": "02:00 AM", "status": "pending"},
+        {"id": 2, "task_key": "deep_anomaly_scan", "name": "Deep Anomaly Scan", "scheduled_at": "01:00 AM", "status": "pending"}
     ]
 
 def get_notifications():
@@ -311,4 +435,3 @@ def get_notifications():
         })
 
     return notifications
-

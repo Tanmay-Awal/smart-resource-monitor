@@ -27,6 +27,11 @@ JWT_EXPIRATION_HOURS = 7 * 24  # 7 days
 
 # OpenAI
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+
+# Groq (OpenAI-compatible)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 # API
 API_HOST = "0.0.0.0"

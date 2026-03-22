@@ -127,6 +127,22 @@ def scheduled_tasks():
     from services.monitor import get_scheduled_tasks
     return get_scheduled_tasks()
 
+@router.post("/tasks/run")
+def run_task(task_key: str):
+    """Run a scheduled maintenance task immediately"""
+    from services.maintenance import run_system_cleanup, run_deep_anomaly_scan
+    if task_key == "system_cleanup":
+        return run_system_cleanup()
+    if task_key == "deep_anomaly_scan":
+        return run_deep_anomaly_scan()
+    return {"status": "error", "message": "Unknown task key"}
+
+@router.post("/diagnostic/run")
+def run_full_diagnostic():
+    """Run a full diagnostic suite"""
+    from services.maintenance import run_full_diagnostic
+    return run_full_diagnostic()
+
 @router.get("/notifications")
 def get_recent_notifications():
     """Get recent system notifications"""

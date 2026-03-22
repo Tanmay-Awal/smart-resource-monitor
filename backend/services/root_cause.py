@@ -2,6 +2,22 @@ def analyze_root_cause(processes: list, metrics: dict) -> dict:
     """Analyze system performance issues and identify root causes"""
     issues = []
     suggestions = []
+    ignore_names = {
+        "system idle process",
+        "idle",
+        "system"
+    }
+    filtered = []
+    for p in processes:
+        name = (p.get("name") or "").strip()
+        if not name:
+            continue
+        if name.lower() in ignore_names:
+            continue
+        if p.get("pid") in (0, 4):
+            continue
+        filtered.append(p)
+    processes = filtered
 
     # Top CPU hog
     top_cpu = sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)[:5]

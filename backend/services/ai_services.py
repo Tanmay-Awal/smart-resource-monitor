@@ -1,7 +1,23 @@
-import os
-from config import OPENAI_API_KEY
+from config import OPENAI_API_KEY, OPENAI_MODEL, GROQ_API_KEY, GROQ_MODEL
 from services.monitor import get_system_metrics, get_process_list
 from services.root_cause import analyze_root_cause
+
+def _get_ai_client():
+    try:
+        from openai import OpenAI
+    except Exception:
+        return None, None
+
+    if GROQ_API_KEY:
+        return OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1"), "groq"
+    if OPENAI_API_KEY:
+        return OpenAI(api_key=OPENAI_API_KEY), "openai"
+    return None, None
+
+def _get_model(provider: str) -> str:
+    if provider == "groq":
+        return GROQ_MODEL
+    return OPENAI_MODEL
 
 def build_system_context() -> str:
     """Build current system state as context for AI"""
@@ -21,21 +37,20 @@ Current system state:
 - Issues: {'; '.join(root['issues']) if root['issues'] else 'None'}
 
 Answer the user specifically based on this real data. Be helpful, concise, and suggest actions."""
-    except:
+    except Exception:
         return "You are a system performance assistant. Help the user understand their computer's performance."
 
 def answer_chat(message: str) -> str:
-    """Answer user chat messages using OpenAI"""
-    if not OPENAI_API_KEY:
-        return "AI assistant is not configured. Please set OPENAI_API_KEY."
+    """Answer user chat messages using Groq/OpenAI"""
+    client, provider = _get_ai_client()
+    if not client:
+        return "AI assistant is not configured. Please set GROQ_API_KEY or OPENAI_API_KEY."
 
     try:
-        import openai
-        openai.api_key = OPENAI_API_KEY
         context = build_system_context()
 
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+        response = client.chat.completions.create(
+            model=_get_model(provider),
             messages=[
                 {"role": "system", "content": context},
                 {"role": "user", "content": message}
@@ -49,15 +64,14 @@ def answer_chat(message: str) -> str:
 
 def generate_daily_story() -> str:
     """Generate a friendly daily performance story"""
-    if not OPENAI_API_KEY:
+    client, provider = _get_ai_client()
+    if not client:
         metrics = get_system_metrics()
         processes = get_process_list()
         top_app = processes[0]['name'] if processes else "Unknown"
         return f"Your system ran at {metrics['cpu_percent']}% CPU with {metrics['ram_percent']}% RAM today. Top app was {top_app}."
 
     try:
-        import openai
-        openai.api_key = OPENAI_API_KEY
         metrics = get_system_metrics()
         processes = get_process_list()
         top_app = processes[0]['name'] if processes else "Unknown"
@@ -66,13 +80,13 @@ def generate_daily_story() -> str:
 Stats: CPU at {metrics['cpu_percent']}%, RAM at {metrics['ram_percent']}%, top app is {top_app}.
 Be conversational, highlight one insight, keep it simple and non-technical."""
 
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+        response = client.chat.completions.create(
+            model=_get_model(provider),
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200
         )
         return response.choices[0].message.content
-    except:
+    except Exception:
         metrics = get_system_metrics()
         processes = get_process_list()
         top_app = processes[0]['name'] if processes else "Unknown"

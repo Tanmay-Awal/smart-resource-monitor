@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from routers import auth, metrics, predict, ai
-from database import test_connection
+from database import test_connection, ensure_schema
 
 from contextlib import asynccontextmanager
 
@@ -11,6 +11,7 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Smart Resource Monitor API Starting...")
     test_connection()
+    ensure_schema()
     yield
     # Shutdown
     print("🛑 Smart Resource Monitor API Shutting Down...")
