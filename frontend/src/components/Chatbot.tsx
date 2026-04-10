@@ -16,26 +16,36 @@ export default function Chatbot() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchHistory = async () => {
       try {
         const res = await api.get("/chat/history");
-        if (res.data.length > 0) {
-          setMessages(res.data.map((m: any) => ({
+        const history = res.data.length > 0
+          ? res.data.map((m: any) => ({
             role: m.sender === "user" ? "user" : "assistant",
             content: m.message
-          })));
-        } else {
-          setMessages([
+          }))
+          : [
             { role: "assistant", content: "AI synchronized. Analyzing system logs for insights..." },
-          ]);
-        }
+          ];
+        if (cancelled) return;
+        setMessages((prev) => {
+          const hasActiveConversation = prev.some((msg) => msg.role === "user") || prev.length > 1;
+          return hasActiveConversation ? prev : history;
+        });
       } catch (err) {
-        setMessages([
-          { role: "assistant", content: "Connection to core offline. Local diagnostics only." },
-        ]);
+        if (cancelled) return;
+        setMessages((prev) => {
+          const hasActiveConversation = prev.some((msg) => msg.role === "user") || prev.length > 1;
+          if (hasActiveConversation) return prev;
+          return [{ role: "assistant", content: "Connection to core offline. Local diagnostics only." }];
+        });
       }
     };
     fetchHistory();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

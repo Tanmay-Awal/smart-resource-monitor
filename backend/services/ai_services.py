@@ -1,3 +1,5 @@
+import re
+
 from config import OPENAI_API_KEY, OPENAI_MODEL, GROQ_API_KEY, GROQ_MODEL
 from services.monitor import get_system_metrics, get_process_list
 from services.root_cause import analyze_root_cause
@@ -19,6 +21,27 @@ def _get_model(provider: str) -> str:
         return GROQ_MODEL
     return OPENAI_MODEL
 
+def _is_greeting(message: str) -> bool:
+    text = message.strip().lower()
+    return text in {"hi", "hello", "hey", "yo", "hola", "hii", "heyy"}
+
+def _is_pc_related(message: str) -> bool:
+    text = message.lower()
+    keywords = [
+        "pc", "computer", "system", "cpu", "ram", "memory", "disk", "ssd", "hdd",
+        "temperature", "temp", "process", "lag", "slow", "freeze", "performance",
+        "battery", "network", "autopilot", "resource", "monitor", "task manager"
+    ]
+    return any(word in text for word in keywords)
+
+def _fit_to_three_lines(text: str) -> str:
+    cleaned = " ".join(text.strip().split())
+    sentences = re.split(r'(?<=[.!?])\s+', cleaned)
+    trimmed = " ".join(sentences[:3]).strip()
+    if len(trimmed) > 360:
+        trimmed = trimmed[:357].rstrip() + "..."
+    return trimmed
+
 def build_system_context() -> str:
     """Build current system state as context for AI"""
     try:
@@ -36,12 +59,21 @@ Current system state:
 - System status: {root['status']} — {root['summary']}
 - Issues: {'; '.join(root['issues']) if root['issues'] else 'None'}
 
-Answer the user specifically based on this real data. Be helpful, concise, and suggest actions."""
+Rules:
+1) Reply in max 2-3 short lines.
+2) Stay focused only on this PC's health/performance.
+3) If user is just greeting, respond with a short greeting and ask what PC issue they need help with."""
     except Exception:
         return "You are a system performance assistant. Help the user understand their computer's performance."
 
 def answer_chat(message: str) -> str:
     """Answer user chat messages using Groq/OpenAI"""
+    if _is_greeting(message):
+        return "Hi! I can help with your PC health and performance.\nTell me what issue you want to check."
+
+    if not _is_pc_related(message):
+        return "I'm here to help with your PC health and performance only.\nPlease ask a system-related question."
+
     client, provider = _get_ai_client()
     if not client:
         return "AI assistant is not configured. Please set GROQ_API_KEY or OPENAI_API_KEY."
@@ -55,10 +87,11 @@ def answer_chat(message: str) -> str:
                 {"role": "system", "content": context},
                 {"role": "user", "content": message}
             ],
-            max_tokens=300,
-            temperature=0.7
+            max_tokens=110,
+            temperature=0.2
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content or ""
+        return _fit_to_three_lines(content)
     except Exception as e:
         return f"I'm having trouble connecting to the AI service. Error: {str(e)}"
 
